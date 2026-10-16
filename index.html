@@ -135,6 +135,18 @@
         .escala-details {
             font-size: 14px;
             color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .escala-marcacoes {
+            font-size: 13px;
+            font-weight: bold;
+            color: var(--accent-color);
+            background-color: #1A1A1A;
+            padding: 6px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-top: 4px;
         }
 
         .status-badge {
@@ -161,7 +173,7 @@
             background-color: #222;
         }
 
-        /* TRUQUE CSS: Inverte as cores do mapa padrão para criar um Dark Mode perfeito */
+        /* TRUQUE CSS: Inverte as cores do mapa padrão para criar um Dark Mode */
         .leaflet-tile {
             filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
         }
@@ -180,6 +192,15 @@
             border-radius: 50%;
             border: 2px solid #000;
             animation: pulse 1.5s infinite;
+        }
+
+        /* Estilo para flexbox dos campos de hora */
+        .row-horas {
+            display: flex;
+            gap: 12px;
+        }
+        .row-horas > div {
+            flex: 1;
         }
     </style>
 </head>
@@ -228,8 +249,19 @@
             <label for="data">Data</label>
             <input type="date" id="data" required>
 
-            <label for="hora">Horário</label>
+            <label for="hora">Horário Previsto</label>
             <input type="time" id="hora" required>
+
+            <div class="row-horas">
+                <div>
+                    <label for="horaEntrada" style="color: #4CAF50;">Entrada Real</label>
+                    <input type="time" id="horaEntrada">
+                </div>
+                <div>
+                    <label for="horaSaida" style="color: #FF3366;">Saída Real</label>
+                    <input type="time" id="horaSaida">
+                </div>
+            </div>
 
             <button type="submit" id="btn-submit-escala" class="btn">Cadastrar Escala</button>
             <button type="button" id="btn-cancelar-edicao" class="btn btn-outline" style="display: none;" onclick="cancelarEdicao()">Cancelar Edição</button>
@@ -270,13 +302,11 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <!-- IMPORTAÇÃO DO FIREBASE (Versão Modular 10) -->
+    <!-- IMPORTAÇÃO DO FIREBASE -->
     <script type="module">
-        // Adicionada a função deleteDoc à importação
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, setDoc, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        // Configuração real do Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyB6YUQRMOmkLAIaVa68UTkb06lDCrjZckY",
             authDomain: "escalas-thiago.firebaseapp.com",
@@ -294,7 +324,6 @@
         let watchId = null;
         let escalaEditandoId = null; 
         
-        // Variáveis dos Mapas
         let mapNamorada = null;
         let markerNamorada = null;
         let mapThiago = null;
@@ -308,7 +337,7 @@
         });
 
         const freeTileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-        const tileAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+        const tileAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
 
         window.selectProfile = function(profile) {
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
@@ -331,20 +360,24 @@
         };
 
         // =========================================================
-        // FUNÇÕES DO THIAGO (Salvar, Editar, Excluir e Transmitir Localização)
+        // FUNÇÕES DO THIAGO (Salvar, Editar, Excluir e Transmitir)
         // =========================================================
         window.salvarEscala = async function(event) {
             event.preventDefault();
             const tipo = document.getElementById('tipo').value;
             const data = document.getElementById('data').value;
             const hora = document.getElementById('hora').value;
+            const horaEntrada = document.getElementById('horaEntrada').value;
+            const horaSaida = document.getElementById('horaSaida').value;
 
             try {
                 if (escalaEditandoId) {
                     await updateDoc(doc(db, "escalas", escalaEditandoId), {
                         tipo: tipo,
                         data: data,
-                        hora: hora
+                        hora: hora,
+                        horaEntrada: horaEntrada,
+                        horaSaida: horaSaida
                     });
                     alert("Escala atualizada com sucesso!");
                     cancelarEdicao(); 
@@ -353,6 +386,8 @@
                         tipo: tipo,
                         data: data,
                         hora: hora,
+                        horaEntrada: horaEntrada,
+                        horaSaida: horaSaida,
                         timestamp: new Date().getTime()
                     });
                     alert("Escala cadastrada com sucesso!");
@@ -364,10 +399,12 @@
             }
         };
 
-        window.editarEscala = function(id, tipo, data, hora) {
+        window.editarEscala = function(id, tipo, data, hora, entrada, saida) {
             document.getElementById('tipo').value = tipo;
             document.getElementById('data').value = data;
             document.getElementById('hora').value = hora;
+            document.getElementById('horaEntrada').value = entrada !== 'undefined' ? entrada : '';
+            document.getElementById('horaSaida').value = saida !== 'undefined' ? saida : '';
             
             escalaEditandoId = id;
             
@@ -386,20 +423,17 @@
             document.getElementById('btn-cancelar-edicao').style.display = "none";
         };
 
-        // NOVA FUNÇÃO: Excluir Escala
         window.excluirEscala = async function(id) {
             const confirmar = confirm("Tem certeza que deseja excluir esta escala?");
             if (confirmar) {
                 try {
                     await deleteDoc(doc(db, "escalas", id));
-                    
-                    // Se estiver editando a mesma escala que foi excluída, limpa o formulário
                     if (escalaEditandoId === id) {
                         cancelarEdicao();
                     }
                 } catch (e) {
                     console.error("Erro ao excluir: ", e);
-                    alert("Erro ao excluir a escala. Verifique sua conexão.");
+                    alert("Erro ao excluir a escala.");
                 }
             }
         };
@@ -441,13 +475,13 @@
                             atualizarMapaThiago(lat, lng);
                         },
                         (error) => {
-                            alert("Erro ao obter localização. Verifique o GPS do celular.");
+                            alert("Erro ao obter localização. Verifique o GPS.");
                             console.error(error);
                         },
                         { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
                     );
                 } else {
-                    alert("Geolocalização não suportada neste navegador.");
+                    alert("Geolocalização não suportada.");
                 }
             }
         };
@@ -475,7 +509,7 @@
                     atualizadoEm: new Date().getTime()
                 });
             } catch (e) {
-                console.error("Erro ao atualizar localização no banco: ", e);
+                console.error("Erro ao atualizar localização: ", e);
             }
         }
 
@@ -505,26 +539,39 @@
                     const dataObj = new Date(dados.data + 'T00:00:00');
                     const dataFormatada = dataObj.toLocaleDateString('pt-BR');
 
+                    // Construção do indicador de Ponto (Entrada/Saída)
+                    let marcacoesHTML = "";
+                    if (dados.horaEntrada || dados.horaSaida) {
+                        const txtEntrada = dados.horaEntrada ? `🟢 Início: ${dados.horaEntrada}` : `🟢 Início: --:--`;
+                        const txtSaida = dados.horaSaida ? `🔴 Fim: ${dados.horaSaida}` : `🔴 Fim: --:--`;
+                        marcacoesHTML = `<div class="escala-marcacoes">${txtEntrada} &nbsp;|&nbsp; ${txtSaida}</div>`;
+                    } else {
+                        marcacoesHTML = `<div class="escala-marcacoes" style="color: #A0A0A0;">⏳ Aguardando início...</div>`;
+                    }
+
+                    // Cartão Andreza
                     const cardAndreza = document.createElement('div');
                     cardAndreza.className = 'escala-card';
                     cardAndreza.innerHTML = `
                         <div class="escala-title">${dados.tipo}</div>
-                        <div class="escala-details">📅 ${dataFormatada} às ⏰ ${dados.hora}</div>
+                        <div class="escala-details">📅 ${dataFormatada} às ⏰ ${dados.hora} (Previsto)</div>
+                        ${marcacoesHTML}
                     `;
                     listaAndreza.appendChild(cardAndreza);
 
-                    // Atualizado com botão Excluir ao lado do botão Editar
+                    // Cartão Thiago
                     const cardThiago = document.createElement('div');
                     cardThiago.className = 'escala-card';
                     cardThiago.innerHTML = `
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                             <div>
                                 <div class="escala-title">${dados.tipo}</div>
                                 <div class="escala-details">📅 ${dataFormatada} às ⏰ ${dados.hora}</div>
+                                ${marcacoesHTML}
                             </div>
-                            <div style="display: flex; gap: 12px;">
-                                <button onclick="editarEscala('${id}', '${dados.tipo}', '${dados.data}', '${dados.hora}')" style="background: none; border: none; color: var(--accent-color); font-size: 14px; font-weight: bold; cursor: pointer; text-decoration: underline;">Editar</button>
-                                <button onclick="excluirEscala('${id}')" style="background: none; border: none; color: var(--danger-color); font-size: 14px; font-weight: bold; cursor: pointer; text-decoration: underline;">Excluir</button>
+                            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+                                <button onclick="editarEscala('${id}', '${dados.tipo}', '${dados.data}', '${dados.hora}', '${dados.horaEntrada || ''}', '${dados.horaSaida || ''}')" style="background: none; border: none; color: var(--accent-color); font-size: 14px; font-weight: bold; cursor: pointer; text-decoration: underline; text-align: right;">Editar</button>
+                                <button onclick="excluirEscala('${id}')" style="background: none; border: none; color: var(--danger-color); font-size: 14px; font-weight: bold; cursor: pointer; text-decoration: underline; text-align: right;">Excluir</button>
                             </div>
                         </div>
                     `;
