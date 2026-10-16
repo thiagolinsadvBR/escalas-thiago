@@ -270,10 +270,11 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <!-- IMPORTAÇÃO DO FIREBASE -->
+    <!-- IMPORTAÇÃO DO FIREBASE (Versão Modular 10) -->
     <script type="module">
+        // Adicionada a função deleteDoc à importação
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, setDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, setDoc, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
         // Configuração real do Firebase
         const firebaseConfig = {
@@ -291,7 +292,7 @@
         const db = getFirestore(app);
 
         let watchId = null;
-        let escalaEditandoId = null; // Variável para controlar qual escala está sendo editada
+        let escalaEditandoId = null; 
         
         // Variáveis dos Mapas
         let mapNamorada = null;
@@ -299,7 +300,6 @@
         let mapThiago = null;
         let markerThiago = null;
 
-        // Ícone customizado piscante
         const pulsingIcon = L.divIcon({
             className: 'custom-div-icon',
             html: '<div class="live-marker"></div>',
@@ -307,16 +307,13 @@
             iconAnchor: [8, 8]
         });
 
-        // URL do OpenStreetMap Padrão
         const freeTileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
         const tileAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
-        // Funções de Navegação e Perfil
         window.selectProfile = function(profile) {
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
             document.getElementById(`view-${profile}`).classList.add('active');
             
-            // Agora carrega as escalas para ambos, pois os dois têm as listas
             carregarEscalas();
 
             if(profile === 'namorada') {
@@ -334,7 +331,7 @@
         };
 
         // =========================================================
-        // FUNÇÕES DO THIAGO (Salvar, Editar Escala e Transmitir Localização)
+        // FUNÇÕES DO THIAGO (Salvar, Editar, Excluir e Transmitir Localização)
         // =========================================================
         window.salvarEscala = async function(event) {
             event.preventDefault();
@@ -344,16 +341,14 @@
 
             try {
                 if (escalaEditandoId) {
-                    // Atualiza a escala existente
                     await updateDoc(doc(db, "escalas", escalaEditandoId), {
                         tipo: tipo,
                         data: data,
                         hora: hora
                     });
                     alert("Escala atualizada com sucesso!");
-                    cancelarEdicao(); // Limpa e reseta o formulário
+                    cancelarEdicao(); 
                 } else {
-                    // Cria uma nova escala
                     await addDoc(collection(db, "escalas"), {
                         tipo: tipo,
                         data: data,
@@ -370,19 +365,16 @@
         };
 
         window.editarEscala = function(id, tipo, data, hora) {
-            // Preenche o formulário com os dados da escala
             document.getElementById('tipo').value = tipo;
             document.getElementById('data').value = data;
             document.getElementById('hora').value = hora;
             
             escalaEditandoId = id;
             
-            // Muda a aparência do formulário para o modo de Edição
             document.getElementById('titulo-form-escala').textContent = "Editando Escala";
             document.getElementById('btn-submit-escala').textContent = "Atualizar Escala";
             document.getElementById('btn-cancelar-edicao').style.display = "block";
             
-            // Rola a página para o topo (onde está o formulário)
             window.scrollTo({ top: 0, behavior: 'smooth' });
         };
 
@@ -394,13 +386,30 @@
             document.getElementById('btn-cancelar-edicao').style.display = "none";
         };
 
+        // NOVA FUNÇÃO: Excluir Escala
+        window.excluirEscala = async function(id) {
+            const confirmar = confirm("Tem certeza que deseja excluir esta escala?");
+            if (confirmar) {
+                try {
+                    await deleteDoc(doc(db, "escalas", id));
+                    
+                    // Se estiver editando a mesma escala que foi excluída, limpa o formulário
+                    if (escalaEditandoId === id) {
+                        cancelarEdicao();
+                    }
+                } catch (e) {
+                    console.error("Erro ao excluir: ", e);
+                    alert("Erro ao excluir a escala. Verifique sua conexão.");
+                }
+            }
+        };
+
         window.toggleLocation = function() {
             const btn = document.getElementById('btn-toggle-location');
             const statusBadge = document.getElementById('location-status');
             const mapContainer = document.getElementById('map-thiago');
 
             if (watchId) {
-                // Parar de compartilhar
                 navigator.geolocation.clearWatch(watchId);
                 watchId = null;
                 btn.textContent = "Transmitir Ao Vivo";
@@ -416,7 +425,6 @@
                     markerThiago = null;
                 }
             } else {
-                // Iniciar compartilhamento
                 if (navigator.geolocation) {
                     btn.textContent = "Parar Transmissão";
                     btn.className = "btn btn-danger";
@@ -472,10 +480,9 @@
         }
 
         // =========================================================
-        // FUNÇÃO COMPARTILHADA (Ler Escalas para ambos os painéis)
+        // FUNÇÃO COMPARTILHADA (Ler Escalas)
         // =========================================================
         function carregarEscalas() {
-            // orderBy("data", "desc") exibe da mais recente para a mais antiga (ordem decrescente)
             const q = query(collection(db, "escalas"), orderBy("data", "desc"));
             
             onSnapshot(q, (snapshot) => {
@@ -498,7 +505,6 @@
                     const dataObj = new Date(dados.data + 'T00:00:00');
                     const dataFormatada = dataObj.toLocaleDateString('pt-BR');
 
-                    // --- Renderiza o Cartão para a Andreza ---
                     const cardAndreza = document.createElement('div');
                     cardAndreza.className = 'escala-card';
                     cardAndreza.innerHTML = `
@@ -507,64 +513,11 @@
                     `;
                     listaAndreza.appendChild(cardAndreza);
 
-                    // --- Renderiza o Cartão para o Thiago (Com botão de Edição) ---
+                    // Atualizado com botão Excluir ao lado do botão Editar
                     const cardThiago = document.createElement('div');
                     cardThiago.className = 'escala-card';
                     cardThiago.innerHTML = `
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div>
                                 <div class="escala-title">${dados.tipo}</div>
-                                <div class="escala-details">📅 ${dataFormatada} às ⏰ ${dados.hora}</div>
-                            </div>
-                            <button onclick="editarEscala('${id}', '${dados.tipo}', '${dados.data}', '${dados.hora}')" style="background: none; border: none; color: var(--accent-color); font-size: 14px; font-weight: bold; cursor: pointer; text-decoration: underline;">Editar</button>
-                        </div>
-                    `;
-                    listaThiago.appendChild(cardThiago);
-                });
-            });
-        }
-
-        // =========================================================
-        // FUNÇÃO DA ANDREZA (Escutar Localização)
-        // =========================================================
-        function escutarLocalizacao() {
-            onSnapshot(doc(db, "status_thiago", "localizacao"), (docSnap) => {
-                const statusBadge = document.getElementById('namorada-loc-status');
-                const mapContainer = document.getElementById('map-namorada');
-
-                if (docSnap.exists()) {
-                    const dados = docSnap.data();
-                    
-                    if (dados.ativo) {
-                        statusBadge.textContent = "Ao Vivo agora";
-                        statusBadge.className = "status-badge status-on";
-                        mapContainer.style.display = "block";
-
-                        if (!mapNamorada) {
-                            mapNamorada = L.map('map-namorada').setView([dados.latitude, dados.longitude], 16);
-                            L.tileLayer(freeTileUrl, { attribution: tileAttribution }).addTo(mapNamorada);
-                            markerNamorada = L.marker([dados.latitude, dados.longitude], {icon: pulsingIcon}).addTo(mapNamorada);
-                            
-                            setTimeout(() => { mapNamorada.invalidateSize(); }, 100);
-                        } else {
-                            const newPos = new L.LatLng(dados.latitude, dados.longitude);
-                            markerNamorada.setLatLng(newPos);
-                            mapNamorada.panTo(newPos);
-                        }
-                    } else {
-                        statusBadge.textContent = "Transmissão Desligada";
-                        statusBadge.className = "status-badge status-off";
-                        mapContainer.style.display = "none";
-                        
-                        if(mapNamorada) {
-                            mapNamorada.remove();
-                            mapNamorada = null;
-                            markerNamorada = null;
-                        }
-                    }
-                }
-            });
-        }
-    </script>
-</body>
-</html>
+                                <div class="escala-details
