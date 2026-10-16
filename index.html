@@ -155,9 +155,15 @@
             width: 100%;
             border-radius: 8px;
             margin-bottom: 16px;
-            display: none; /* Escondido por padrão */
+            display: none;
             z-index: 1;
             border: 2px solid #333;
+            background-color: #222;
+        }
+
+        /* TRUQUE CSS: Inverte as cores do mapa padrão para criar um Dark Mode perfeito */
+        .leaflet-tile {
+            filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
         }
 
         /* Animação do pino piscando (Amarelo Limão) */
@@ -244,7 +250,7 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <!-- IMPORTAÇÃO DO FIREBASE (Versão Modular 10) -->
+    <!-- IMPORTAÇÃO DO FIREBASE -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, setDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
@@ -280,9 +286,9 @@
             iconAnchor: [8, 8]
         });
 
-        // Tiles escuros do CartoDB para combinar com o Dark Mode
-        const darkTileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-        const tileAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+        // URL do OpenStreetMap Padrão (Gratuito, sem API Key)
+        const freeTileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+        const tileAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
         // Funções de Navegação e Perfil
         window.selectProfile = function(profile) {
@@ -381,10 +387,9 @@
         function atualizarMapaThiago(lat, lng) {
             if (!mapThiago) {
                 mapThiago = L.map('map-thiago').setView([lat, lng], 16);
-                L.tileLayer(darkTileUrl, { attribution: tileAttribution }).addTo(mapThiago);
+                L.tileLayer(freeTileUrl, { attribution: tileAttribution }).addTo(mapThiago);
                 markerThiago = L.marker([lat, lng], {icon: pulsingIcon}).addTo(mapThiago);
                 
-                // Força o ajuste do tamanho do mapa após ser exibido
                 setTimeout(() => { mapThiago.invalidateSize(); }, 100);
             } else {
                 const newPos = new L.LatLng(lat, lng);
@@ -451,10 +456,9 @@
 
                         if (!mapNamorada) {
                             mapNamorada = L.map('map-namorada').setView([dados.latitude, dados.longitude], 16);
-                            L.tileLayer(darkTileUrl, { attribution: tileAttribution }).addTo(mapNamorada);
+                            L.tileLayer(freeTileUrl, { attribution: tileAttribution }).addTo(mapNamorada);
                             markerNamorada = L.marker([dados.latitude, dados.longitude], {icon: pulsingIcon}).addTo(mapNamorada);
                             
-                            // Ajusta a renderização do mapa
                             setTimeout(() => { mapNamorada.invalidateSize(); }, 100);
                         } else {
                             const newPos = new L.LatLng(dados.latitude, dados.longitude);
