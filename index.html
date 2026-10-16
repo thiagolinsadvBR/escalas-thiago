@@ -384,4 +384,101 @@
             }
         };
 
-        function atualizarMapaThiago(
+        function atualizarMapaThiago(lat, lng) {
+            if (!mapThiago) {
+                mapThiago = L.map('map-thiago').setView([lat, lng], 16);
+                L.tileLayer(freeTileUrl, { attribution: tileAttribution }).addTo(mapThiago);
+                markerThiago = L.marker([lat, lng], {icon: pulsingIcon}).addTo(mapThiago);
+                
+                setTimeout(() => { mapThiago.invalidateSize(); }, 100);
+            } else {
+                const newPos = new L.LatLng(lat, lng);
+                markerThiago.setLatLng(newPos);
+                mapThiago.panTo(newPos);
+            }
+        }
+
+        async function atualizarStatusLocalizacaoFirestore(ativo, lat, lng) {
+            try {
+                await setDoc(doc(db, "status_thiago", "localizacao"), {
+                    ativo: ativo,
+                    latitude: lat,
+                    longitude: lng,
+                    atualizadoEm: new Date().getTime()
+                });
+            } catch (e) {
+                console.error("Erro ao atualizar localização no banco: ", e);
+            }
+        }
+
+        // =========================================================
+        // FUNÇÕES DA NAMORADA (Ler Escalas e Ler Localização ao Vivo)
+        // =========================================================
+        function carregarEscalas() {
+            const q = query(collection(db, "escalas"), orderBy("data", "asc"));
+            onSnapshot(q, (snapshot) => {
+                const lista = document.getElementById('lista-escalas');
+                lista.innerHTML = "";
+                
+                if(snapshot.empty) {
+                    lista.innerHTML = "<p style='color: #A0A0A0; text-align: center;'>Nenhuma escala cadastrada.</p>";
+                    return;
+                }
+
+                snapshot.forEach((doc) => {
+                    const dados = doc.data();
+                    const dataObj = new Date(dados.data + 'T00:00:00');
+                    const dataFormatada = dataObj.toLocaleDateString('pt-BR');
+
+                    const card = document.createElement('div');
+                    card.className = 'escala-card';
+                    card.innerHTML = `
+                        <div class="escala-title">${dados.tipo}</div>
+                        <div class="escala-details">📅 ${dataFormatada} às ⏰ ${dados.hora}</div>
+                    `;
+                    lista.appendChild(card);
+                });
+            });
+        }
+
+        function escutarLocalizacao() {
+            onSnapshot(doc(db, "status_thiago", "localizacao"), (docSnap) => {
+                const statusBadge = document.getElementById('namorada-loc-status');
+                const mapContainer = document.getElementById('map-namorada');
+
+                if (docSnap.exists()) {
+                    const dados = docSnap.data();
+                    
+                    if (dados.ativo) {
+                        statusBadge.textContent = "Ao Vivo agora";
+                        statusBadge.className = "status-badge status-on";
+                        mapContainer.style.display = "block";
+
+                        if (!mapNamorada) {
+                            mapNamorada = L.map('map-namorada').setView([dados.latitude, dados.longitude], 16);
+                            L.tileLayer(freeTileUrl, { attribution: tileAttribution }).addTo(mapNamorada);
+                            markerNamorada = L.marker([dados.latitude, dados.longitude], {icon: pulsingIcon}).addTo(mapNamorada);
+                            
+                            setTimeout(() => { mapNamorada.invalidateSize(); }, 100);
+                        } else {
+                            const newPos = new L.LatLng(dados.latitude, dados.longitude);
+                            markerNamorada.setLatLng(newPos);
+                            mapNamorada.panTo(newPos);
+                        }
+                    } else {
+                        statusBadge.textContent = "Transmissão Desligada";
+                        statusBadge.className = "status-badge status-off";
+                        mapContainer.style.display = "none";
+                        
+                        if(mapNamorada) {
+                            mapNamorada.remove();
+                            mapNamorada = null;
+                            markerNamorada = null;
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
