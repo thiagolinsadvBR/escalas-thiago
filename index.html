@@ -520,4 +520,60 @@
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div>
                                 <div class="escala-title">${dados.tipo}</div>
-                                <div class="escala-details
+                                <div class="escala-details">📅 ${dataFormatada} às ⏰ ${dados.hora}</div>
+                            </div>
+                            <div style="display: flex; gap: 12px;">
+                                <button onclick="editarEscala('${id}', '${dados.tipo}', '${dados.data}', '${dados.hora}')" style="background: none; border: none; color: var(--accent-color); font-size: 14px; font-weight: bold; cursor: pointer; text-decoration: underline;">Editar</button>
+                                <button onclick="excluirEscala('${id}')" style="background: none; border: none; color: var(--danger-color); font-size: 14px; font-weight: bold; cursor: pointer; text-decoration: underline;">Excluir</button>
+                            </div>
+                        </div>
+                    `;
+                    listaThiago.appendChild(cardThiago);
+                });
+            });
+        }
+
+        // =========================================================
+        // FUNÇÃO DA ANDREZA (Escutar Localização)
+        // =========================================================
+        function escutarLocalizacao() {
+            onSnapshot(doc(db, "status_thiago", "localizacao"), (docSnap) => {
+                const statusBadge = document.getElementById('namorada-loc-status');
+                const mapContainer = document.getElementById('map-namorada');
+
+                if (docSnap.exists()) {
+                    const dados = docSnap.data();
+                    
+                    if (dados.ativo) {
+                        statusBadge.textContent = "Ao Vivo agora";
+                        statusBadge.className = "status-badge status-on";
+                        mapContainer.style.display = "block";
+
+                        if (!mapNamorada) {
+                            mapNamorada = L.map('map-namorada').setView([dados.latitude, dados.longitude], 16);
+                            L.tileLayer(freeTileUrl, { attribution: tileAttribution }).addTo(mapNamorada);
+                            markerNamorada = L.marker([dados.latitude, dados.longitude], {icon: pulsingIcon}).addTo(mapNamorada);
+                            
+                            setTimeout(() => { mapNamorada.invalidateSize(); }, 100);
+                        } else {
+                            const newPos = new L.LatLng(dados.latitude, dados.longitude);
+                            markerNamorada.setLatLng(newPos);
+                            mapNamorada.panTo(newPos);
+                        }
+                    } else {
+                        statusBadge.textContent = "Transmissão Desligada";
+                        statusBadge.className = "status-badge status-off";
+                        mapContainer.style.display = "none";
+                        
+                        if(mapNamorada) {
+                            mapNamorada.remove();
+                            mapNamorada = null;
+                            markerNamorada = null;
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
