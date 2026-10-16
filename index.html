@@ -141,12 +141,14 @@
         .escala-marcacoes {
             font-size: 13px;
             font-weight: bold;
-            color: var(--accent-color);
+            color: var(--text-color);
             background-color: #1A1A1A;
-            padding: 6px;
+            padding: 8px;
             border-radius: 4px;
             display: inline-block;
             margin-top: 4px;
+            width: 100%;
+            text-align: center;
         }
 
         .status-badge {
@@ -249,16 +251,13 @@
             <label for="data">Data</label>
             <input type="date" id="data" required>
 
-            <label for="hora">Horário Previsto</label>
-            <input type="time" id="hora" required>
-
             <div class="row-horas">
                 <div>
-                    <label for="horaEntrada" style="color: #4CAF50;">Entrada Real</label>
-                    <input type="time" id="horaEntrada">
+                    <label for="horaEntrada" style="color: #4CAF50;">Horário de Entrada</label>
+                    <input type="time" id="horaEntrada" required>
                 </div>
                 <div>
-                    <label for="horaSaida" style="color: #FF3366;">Saída Real</label>
+                    <label for="horaSaida" style="color: #FF3366;">Horário de Saída</label>
                     <input type="time" id="horaSaida">
                 </div>
             </div>
@@ -366,7 +365,6 @@
             event.preventDefault();
             const tipo = document.getElementById('tipo').value;
             const data = document.getElementById('data').value;
-            const hora = document.getElementById('hora').value;
             const horaEntrada = document.getElementById('horaEntrada').value;
             const horaSaida = document.getElementById('horaSaida').value;
 
@@ -375,7 +373,6 @@
                     await updateDoc(doc(db, "escalas", escalaEditandoId), {
                         tipo: tipo,
                         data: data,
-                        hora: hora,
                         horaEntrada: horaEntrada,
                         horaSaida: horaSaida
                     });
@@ -385,7 +382,6 @@
                     await addDoc(collection(db, "escalas"), {
                         tipo: tipo,
                         data: data,
-                        hora: hora,
                         horaEntrada: horaEntrada,
                         horaSaida: horaSaida,
                         timestamp: new Date().getTime()
@@ -399,10 +395,9 @@
             }
         };
 
-        window.editarEscala = function(id, tipo, data, hora, entrada, saida) {
+        window.editarEscala = function(id, tipo, data, entrada, saida) {
             document.getElementById('tipo').value = tipo;
             document.getElementById('data').value = data;
-            document.getElementById('hora').value = hora;
             document.getElementById('horaEntrada').value = entrada !== 'undefined' ? entrada : '';
             document.getElementById('horaSaida').value = saida !== 'undefined' ? saida : '';
             
@@ -539,22 +534,16 @@
                     const dataObj = new Date(dados.data + 'T00:00:00');
                     const dataFormatada = dataObj.toLocaleDateString('pt-BR');
 
-                    // Construção do indicador de Ponto (Entrada/Saída)
-                    let marcacoesHTML = "";
-                    if (dados.horaEntrada || dados.horaSaida) {
-                        const txtEntrada = dados.horaEntrada ? `🟢 Início: ${dados.horaEntrada}` : `🟢 Início: --:--`;
-                        const txtSaida = dados.horaSaida ? `🔴 Fim: ${dados.horaSaida}` : `🔴 Fim: --:--`;
-                        marcacoesHTML = `<div class="escala-marcacoes">${txtEntrada} &nbsp;|&nbsp; ${txtSaida}</div>`;
-                    } else {
-                        marcacoesHTML = `<div class="escala-marcacoes" style="color: #A0A0A0;">⏳ Aguardando início...</div>`;
-                    }
+                    const txtEntrada = dados.horaEntrada ? `<span style="color: #4CAF50;">Entrada: ${dados.horaEntrada}</span>` : `<span style="color: #4CAF50;">Entrada: --:--</span>`;
+                    const txtSaida = dados.horaSaida ? `<span style="color: #FF3366;">Saída: ${dados.horaSaida}</span>` : `<span style="color: #FF3366;">Saída: --:--</span>`;
+                    const marcacoesHTML = `<div class="escala-marcacoes">${txtEntrada} &nbsp;|&nbsp; ${txtSaida}</div>`;
 
                     // Cartão Andreza
                     const cardAndreza = document.createElement('div');
                     cardAndreza.className = 'escala-card';
                     cardAndreza.innerHTML = `
                         <div class="escala-title">${dados.tipo}</div>
-                        <div class="escala-details">📅 ${dataFormatada} às ⏰ ${dados.hora} (Previsto)</div>
+                        <div class="escala-details">📅 ${dataFormatada}</div>
                         ${marcacoesHTML}
                     `;
                     listaAndreza.appendChild(cardAndreza);
@@ -564,13 +553,13 @@
                     cardThiago.className = 'escala-card';
                     cardThiago.innerHTML = `
                         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                            <div>
+                            <div style="flex-grow: 1;">
                                 <div class="escala-title">${dados.tipo}</div>
-                                <div class="escala-details">📅 ${dataFormatada} às ⏰ ${dados.hora}</div>
+                                <div class="escala-details">📅 ${dataFormatada}</div>
                                 ${marcacoesHTML}
                             </div>
-                            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
-                                <button onclick="editarEscala('${id}', '${dados.tipo}', '${dados.data}', '${dados.hora}', '${dados.horaEntrada || ''}', '${dados.horaSaida || ''}')" style="background: none; border: none; color: var(--accent-color); font-size: 14px; font-weight: bold; cursor: pointer; text-decoration: underline; text-align: right;">Editar</button>
+                            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px; margin-left: 12px;">
+                                <button onclick="editarEscala('${id}', '${dados.tipo}', '${dados.data}', '${dados.horaEntrada || ''}', '${dados.horaSaida || ''}')" style="background: none; border: none; color: var(--accent-color); font-size: 14px; font-weight: bold; cursor: pointer; text-decoration: underline; text-align: right;">Editar</button>
                                 <button onclick="excluirEscala('${id}')" style="background: none; border: none; color: var(--danger-color); font-size: 14px; font-weight: bold; cursor: pointer; text-decoration: underline; text-align: right;">Excluir</button>
                             </div>
                         </div>
