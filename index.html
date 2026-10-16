@@ -69,4 +69,412 @@
             color: #000000;
             font-size: 16px;
             font-weight: bold;
-            cursor
+            cursor: pointer;
+            margin-bottom: 12px;
+            transition: background-color 0.3s;
+        }
+
+        .btn:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .btn-danger {
+            background-color: var(--card-color);
+            color: var(--danger-color);
+            border: 2px solid var(--danger-color);
+        }
+
+        .btn-danger:hover {
+            background-color: var(--danger-color);
+            color: #ffffff;
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            color: var(--accent-color);
+            border: 2px solid var(--accent-color);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 16px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            background-color: #0d0d0d;
+            color: var(--text-color);
+            font-size: 16px;
+            outline: none;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--accent-color);
+        }
+
+        .escala-card {
+            background-color: #0d0d0d;
+            border-left: 4px solid var(--accent-color);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+
+        .escala-title {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+
+        .escala-details {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 16px;
+        }
+
+        .status-on { background-color: var(--accent-color); color: #000; }
+        .status-off { background-color: #333; color: #fff; }
+
+        /* Estilos do Mapa */
+        .map-container {
+            height: 250px;
+            width: 100%;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: none; /* Escondido por padrão */
+            z-index: 1;
+            border: 2px solid #333;
+        }
+
+        /* Animação do pino piscando (Amarelo Limão) */
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(212, 255, 0, 0.7); }
+            70% { transform: scale(1.5); box-shadow: 0 0 0 15px rgba(212, 255, 0, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(212, 255, 0, 0); }
+        }
+
+        .live-marker {
+            background-color: var(--accent-color);
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid #000;
+            animation: pulse 1.5s infinite;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- TELA DE LOGIN -->
+    <div id="view-login" class="container view-section active">
+        <h1>Sincronia</h1>
+        <p style="text-align: center; color: #A0A0A0; margin-bottom: 24px;">Quem está acessando?</p>
+        <button class="btn" onclick="selectProfile('thiago')">Sou Thiago</button>
+        <button class="btn btn-outline" onclick="selectProfile('namorada')">Sou Namorada</button>
+    </div>
+
+    <!-- TELA DO THIAGO -->
+    <div id="view-thiago" class="container view-section">
+        <h2>Painel do Thiago</h2>
+        
+        <div style="text-align: center;">
+            <div id="location-status" class="status-badge status-off">Localização Oculta</div>
+            
+            <!-- Mapa do Thiago -->
+            <div id="map-thiago" class="map-container"></div>
+
+            <button id="btn-toggle-location" class="btn" onclick="toggleLocation()">Transmitir Ao Vivo</button>
+        </div>
+
+        <hr style="border-color: #333; margin: 24px 0;">
+
+        <form id="form-escala" onsubmit="salvarEscala(event)">
+            <h3>Nova Escala</h3>
+            <br>
+            <label for="tipo">Tipo de Escala</label>
+            <input type="text" id="tipo" placeholder="Ex: Plantão NIEF, Operação..." required>
+
+            <label for="data">Data</label>
+            <input type="date" id="data" required>
+
+            <label for="hora">Horário</label>
+            <input type="time" id="hora" required>
+
+            <button type="submit" class="btn">Cadastrar Escala</button>
+        </form>
+        
+        <button class="btn btn-danger" onclick="logout()" style="margin-top: 16px;">Sair</button>
+    </div>
+
+    <!-- TELA DA NAMORADA -->
+    <div id="view-namorada" class="container view-section">
+        <h2>Painel de Acompanhamento</h2>
+        
+        <div style="background-color: #0d0d0d; padding: 16px; border-radius: 8px; margin-bottom: 24px; text-align: center;">
+            <p style="color: #A0A0A0; margin-bottom: 8px; font-size: 14px;">Localização do Thiago</p>
+            <div id="namorada-loc-status" class="status-badge status-off">Aguardando atualização...</div>
+            
+            <!-- Mapa da Namorada -->
+            <div id="map-namorada" class="map-container"></div>
+        </div>
+
+        <h3>Próximas Escalas</h3>
+        <br>
+        <div id="lista-escalas">
+            <p style="color: #A0A0A0; text-align: center;">Carregando escalas...</p>
+        </div>
+
+        <button class="btn btn-danger" onclick="logout()" style="margin-top: 24px;">Sair</button>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- IMPORTAÇÃO DO FIREBASE (Versão Modular 10) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, setDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+        // Configuração real do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyB6YUQRMOmkLAIaVa68UTkb06lDCrjZckY",
+            authDomain: "escalas-thiago.firebaseapp.com",
+            databaseURL: "https://escalas-thiago-default-rtdb.firebaseio.com",
+            projectId: "escalas-thiago",
+            storageBucket: "escalas-thiago.firebasestorage.app",
+            messagingSenderId: "479249384716",
+            appId: "1:479249384716:web:fdf75c01d8e58ef0347529",
+            measurementId: "G-NK9L1ZCZ2K"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        let watchId = null;
+        
+        // Variáveis dos Mapas
+        let mapNamorada = null;
+        let markerNamorada = null;
+        let mapThiago = null;
+        let markerThiago = null;
+
+        // Ícone customizado piscante
+        const pulsingIcon = L.divIcon({
+            className: 'custom-div-icon',
+            html: '<div class="live-marker"></div>',
+            iconSize: [16, 16],
+            iconAnchor: [8, 8]
+        });
+
+        // Tiles escuros do CartoDB para combinar com o Dark Mode
+        const darkTileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+        const tileAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
+        // Funções de Navegação e Perfil
+        window.selectProfile = function(profile) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.getElementById(`view-${profile}`).classList.add('active');
+            
+            if(profile === 'namorada') {
+                carregarEscalas();
+                escutarLocalizacao();
+            }
+        };
+
+        window.logout = function() {
+            if(watchId) {
+                navigator.geolocation.clearWatch(watchId);
+                atualizarStatusLocalizacaoFirestore(false, null, null);
+            }
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.getElementById('view-login').classList.add('active');
+        };
+
+        // =========================================================
+        // FUNÇÕES DO THIAGO (Salvar Escala e Transmitir Localização)
+        // =========================================================
+        window.salvarEscala = async function(event) {
+            event.preventDefault();
+            const tipo = document.getElementById('tipo').value;
+            const data = document.getElementById('data').value;
+            const hora = document.getElementById('hora').value;
+
+            try {
+                await addDoc(collection(db, "escalas"), {
+                    tipo: tipo,
+                    data: data,
+                    hora: hora,
+                    timestamp: new Date().getTime()
+                });
+                alert("Escala cadastrada com sucesso!");
+                event.target.reset();
+            } catch (e) {
+                console.error("Erro ao salvar: ", e);
+                alert("Erro ao salvar. Verifique as permissões do banco.");
+            }
+        };
+
+        window.toggleLocation = function() {
+            const btn = document.getElementById('btn-toggle-location');
+            const statusBadge = document.getElementById('location-status');
+            const mapContainer = document.getElementById('map-thiago');
+
+            if (watchId) {
+                // Parar de compartilhar
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+                btn.textContent = "Transmitir Ao Vivo";
+                btn.className = "btn";
+                statusBadge.textContent = "Localização Oculta";
+                statusBadge.className = "status-badge status-off";
+                mapContainer.style.display = "none";
+                atualizarStatusLocalizacaoFirestore(false, null, null);
+                
+                if(mapThiago) {
+                    mapThiago.remove();
+                    mapThiago = null;
+                    markerThiago = null;
+                }
+            } else {
+                // Iniciar compartilhamento
+                if (navigator.geolocation) {
+                    btn.textContent = "Parar Transmissão";
+                    btn.className = "btn btn-danger";
+                    statusBadge.textContent = "Transmitindo ao vivo...";
+                    statusBadge.className = "status-badge status-on";
+                    mapContainer.style.display = "block";
+                    
+                    watchId = navigator.geolocation.watchPosition(
+                        (position) => {
+                            const lat = position.coords.latitude;
+                            const lng = position.coords.longitude;
+                            
+                            atualizarStatusLocalizacaoFirestore(true, lat, lng);
+                            atualizarMapaThiago(lat, lng);
+                        },
+                        (error) => {
+                            alert("Erro ao obter localização. Verifique o GPS do celular.");
+                            console.error(error);
+                        },
+                        { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+                    );
+                } else {
+                    alert("Geolocalização não suportada neste navegador.");
+                }
+            }
+        };
+
+        function atualizarMapaThiago(lat, lng) {
+            if (!mapThiago) {
+                mapThiago = L.map('map-thiago').setView([lat, lng], 16);
+                L.tileLayer(darkTileUrl, { attribution: tileAttribution }).addTo(mapThiago);
+                markerThiago = L.marker([lat, lng], {icon: pulsingIcon}).addTo(mapThiago);
+                
+                // Força o ajuste do tamanho do mapa após ser exibido
+                setTimeout(() => { mapThiago.invalidateSize(); }, 100);
+            } else {
+                const newPos = new L.LatLng(lat, lng);
+                markerThiago.setLatLng(newPos);
+                mapThiago.panTo(newPos);
+            }
+        }
+
+        async function atualizarStatusLocalizacaoFirestore(ativo, lat, lng) {
+            try {
+                await setDoc(doc(db, "status_thiago", "localizacao"), {
+                    ativo: ativo,
+                    latitude: lat,
+                    longitude: lng,
+                    atualizadoEm: new Date().getTime()
+                });
+            } catch (e) {
+                console.error("Erro ao atualizar localização no banco: ", e);
+            }
+        }
+
+        // =========================================================
+        // FUNÇÕES DA NAMORADA (Ler Escalas e Ler Localização ao Vivo)
+        // =========================================================
+        function carregarEscalas() {
+            const q = query(collection(db, "escalas"), orderBy("data", "asc"));
+            onSnapshot(q, (snapshot) => {
+                const lista = document.getElementById('lista-escalas');
+                lista.innerHTML = "";
+                
+                if(snapshot.empty) {
+                    lista.innerHTML = "<p style='color: #A0A0A0; text-align: center;'>Nenhuma escala cadastrada.</p>";
+                    return;
+                }
+
+                snapshot.forEach((doc) => {
+                    const dados = doc.data();
+                    const dataObj = new Date(dados.data + 'T00:00:00');
+                    const dataFormatada = dataObj.toLocaleDateString('pt-BR');
+
+                    const card = document.createElement('div');
+                    card.className = 'escala-card';
+                    card.innerHTML = `
+                        <div class="escala-title">${dados.tipo}</div>
+                        <div class="escala-details">📅 ${dataFormatada} às ⏰ ${dados.hora}</div>
+                    `;
+                    lista.appendChild(card);
+                });
+            });
+        }
+
+        function escutarLocalizacao() {
+            onSnapshot(doc(db, "status_thiago", "localizacao"), (docSnap) => {
+                const statusBadge = document.getElementById('namorada-loc-status');
+                const mapContainer = document.getElementById('map-namorada');
+
+                if (docSnap.exists()) {
+                    const dados = docSnap.data();
+                    
+                    if (dados.ativo) {
+                        statusBadge.textContent = "Ao Vivo agora";
+                        statusBadge.className = "status-badge status-on";
+                        mapContainer.style.display = "block";
+
+                        if (!mapNamorada) {
+                            mapNamorada = L.map('map-namorada').setView([dados.latitude, dados.longitude], 16);
+                            L.tileLayer(darkTileUrl, { attribution: tileAttribution }).addTo(mapNamorada);
+                            markerNamorada = L.marker([dados.latitude, dados.longitude], {icon: pulsingIcon}).addTo(mapNamorada);
+                            
+                            // Ajusta a renderização do mapa
+                            setTimeout(() => { mapNamorada.invalidateSize(); }, 100);
+                        } else {
+                            const newPos = new L.LatLng(dados.latitude, dados.longitude);
+                            markerNamorada.setLatLng(newPos);
+                            mapNamorada.panTo(newPos);
+                        }
+                    } else {
+                        statusBadge.textContent = "Transmissão Desligada";
+                        statusBadge.className = "status-badge status-off";
+                        mapContainer.style.display = "none";
+                        
+                        if(mapNamorada) {
+                            mapNamorada.remove();
+                            mapNamorada = null;
+                            markerNamorada = null;
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
