@@ -209,10 +209,21 @@
         <hr style="border-color: #333; margin: 24px 0;">
 
         <form id="form-escala" onsubmit="salvarEscala(event)">
-            <h3>Nova Escala</h3>
+            <h3 id="titulo-form-escala">Nova Escala</h3>
             <br>
+            
             <label for="tipo">Tipo de Escala</label>
-            <input type="text" id="tipo" placeholder="Ex: Plantão NIEF, Operação..." required>
+            <select id="tipo" required>
+                <option value="" disabled selected>Selecione o tipo...</option>
+                <option value="Ordinária">Ordinária</option>
+                <option value="Extra">Extra</option>
+                <option value="Extra IDV">Extra IDV</option>
+                <option value="Plantão">Plantão</option>
+                <option value="Plantão Blitz">Plantão Blitz</option>
+                <option value="Pnatrans">Pnatrans</option>
+                <option value="Compensação">Compensação</option>
+                <option value="Banco de Horas">Banco de Horas</option>
+            </select>
 
             <label for="data">Data</label>
             <input type="date" id="data" required>
@@ -220,15 +231,24 @@
             <label for="hora">Horário</label>
             <input type="time" id="hora" required>
 
-            <button type="submit" class="btn">Cadastrar Escala</button>
+            <button type="submit" id="btn-submit-escala" class="btn">Cadastrar Escala</button>
+            <button type="button" id="btn-cancelar-edicao" class="btn btn-outline" style="display: none;" onclick="cancelarEdicao()">Cancelar Edição</button>
         </form>
+
+        <hr style="border-color: #333; margin: 24px 0;">
         
-        <button class="btn btn-danger" onclick="logout()" style="margin-top: 16px;">Sair</button>
+        <h3>Minhas Escalas</h3>
+        <br>
+        <div id="lista-escalas-thiago">
+            <p style="color: #A0A0A0; text-align: center;">Carregando escalas...</p>
+        </div>
+
+        <button class="btn btn-danger" onclick="logout()" style="margin-top: 24px;">Sair</button>
     </div>
 
     <!-- TELA DA NAMORADA -->
     <div id="view-namorada" class="container view-section">
-        <h2>Painel de Acompanhamento</h2>
+        <h2>Painel de Andreza</h2>
         
         <div style="background-color: #0d0d0d; padding: 16px; border-radius: 8px; margin-bottom: 24px; text-align: center;">
             <p style="color: #A0A0A0; margin-bottom: 8px; font-size: 14px;">Localização do Thiago</p>
@@ -253,7 +273,7 @@
     <!-- IMPORTAÇÃO DO FIREBASE -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, setDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, setDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
         // Configuração real do Firebase
         const firebaseConfig = {
@@ -271,6 +291,7 @@
         const db = getFirestore(app);
 
         let watchId = null;
+        let escalaEditandoId = null; // Variável para controlar qual escala está sendo editada
         
         // Variáveis dos Mapas
         let mapNamorada = null;
@@ -286,7 +307,7 @@
             iconAnchor: [8, 8]
         });
 
-        // URL do OpenStreetMap Padrão (Gratuito, sem API Key)
+        // URL do OpenStreetMap Padrão
         const freeTileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
         const tileAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
@@ -295,8 +316,10 @@
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
             document.getElementById(`view-${profile}`).classList.add('active');
             
+            // Agora carrega as escalas para ambos, pois os dois têm as listas
+            carregarEscalas();
+
             if(profile === 'namorada') {
-                carregarEscalas();
                 escutarLocalizacao();
             }
         };
@@ -311,7 +334,7 @@
         };
 
         // =========================================================
-        // FUNÇÕES DO THIAGO (Salvar Escala e Transmitir Localização)
+        // FUNÇÕES DO THIAGO (Salvar, Editar Escala e Transmitir Localização)
         // =========================================================
         window.salvarEscala = async function(event) {
             event.preventDefault();
@@ -320,18 +343,55 @@
             const hora = document.getElementById('hora').value;
 
             try {
-                await addDoc(collection(db, "escalas"), {
-                    tipo: tipo,
-                    data: data,
-                    hora: hora,
-                    timestamp: new Date().getTime()
-                });
-                alert("Escala cadastrada com sucesso!");
-                event.target.reset();
+                if (escalaEditandoId) {
+                    // Atualiza a escala existente
+                    await updateDoc(doc(db, "escalas", escalaEditandoId), {
+                        tipo: tipo,
+                        data: data,
+                        hora: hora
+                    });
+                    alert("Escala atualizada com sucesso!");
+                    cancelarEdicao(); // Limpa e reseta o formulário
+                } else {
+                    // Cria uma nova escala
+                    await addDoc(collection(db, "escalas"), {
+                        tipo: tipo,
+                        data: data,
+                        hora: hora,
+                        timestamp: new Date().getTime()
+                    });
+                    alert("Escala cadastrada com sucesso!");
+                    event.target.reset();
+                }
             } catch (e) {
                 console.error("Erro ao salvar: ", e);
-                alert("Erro ao salvar. Verifique as permissões do banco.");
+                alert("Erro ao salvar. Verifique as permissões do banco de dados.");
             }
+        };
+
+        window.editarEscala = function(id, tipo, data, hora) {
+            // Preenche o formulário com os dados da escala
+            document.getElementById('tipo').value = tipo;
+            document.getElementById('data').value = data;
+            document.getElementById('hora').value = hora;
+            
+            escalaEditandoId = id;
+            
+            // Muda a aparência do formulário para o modo de Edição
+            document.getElementById('titulo-form-escala').textContent = "Editando Escala";
+            document.getElementById('btn-submit-escala').textContent = "Atualizar Escala";
+            document.getElementById('btn-cancelar-edicao').style.display = "block";
+            
+            // Rola a página para o topo (onde está o formulário)
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+
+        window.cancelarEdicao = function() {
+            escalaEditandoId = null;
+            document.getElementById('form-escala').reset();
+            document.getElementById('titulo-form-escala').textContent = "Nova Escala";
+            document.getElementById('btn-submit-escala').textContent = "Cadastrar Escala";
+            document.getElementById('btn-cancelar-edicao').style.display = "none";
         };
 
         window.toggleLocation = function() {
@@ -412,35 +472,61 @@
         }
 
         // =========================================================
-        // FUNÇÕES DA NAMORADA (Ler Escalas e Ler Localização ao Vivo)
+        // FUNÇÃO COMPARTILHADA (Ler Escalas para ambos os painéis)
         // =========================================================
         function carregarEscalas() {
-            const q = query(collection(db, "escalas"), orderBy("data", "asc"));
+            // orderBy("data", "desc") exibe da mais recente para a mais antiga (ordem decrescente)
+            const q = query(collection(db, "escalas"), orderBy("data", "desc"));
+            
             onSnapshot(q, (snapshot) => {
-                const lista = document.getElementById('lista-escalas');
-                lista.innerHTML = "";
+                const listaAndreza = document.getElementById('lista-escalas');
+                const listaThiago = document.getElementById('lista-escalas-thiago');
+                
+                listaAndreza.innerHTML = "";
+                listaThiago.innerHTML = "";
                 
                 if(snapshot.empty) {
-                    lista.innerHTML = "<p style='color: #A0A0A0; text-align: center;'>Nenhuma escala cadastrada.</p>";
+                    listaAndreza.innerHTML = "<p style='color: #A0A0A0; text-align: center;'>Nenhuma escala cadastrada.</p>";
+                    listaThiago.innerHTML = "<p style='color: #A0A0A0; text-align: center;'>Nenhuma escala cadastrada.</p>";
                     return;
                 }
 
-                snapshot.forEach((doc) => {
-                    const dados = doc.data();
+                snapshot.forEach((docSnap) => {
+                    const dados = docSnap.data();
+                    const id = docSnap.id;
+                    
                     const dataObj = new Date(dados.data + 'T00:00:00');
                     const dataFormatada = dataObj.toLocaleDateString('pt-BR');
 
-                    const card = document.createElement('div');
-                    card.className = 'escala-card';
-                    card.innerHTML = `
+                    // --- Renderiza o Cartão para a Andreza ---
+                    const cardAndreza = document.createElement('div');
+                    cardAndreza.className = 'escala-card';
+                    cardAndreza.innerHTML = `
                         <div class="escala-title">${dados.tipo}</div>
                         <div class="escala-details">📅 ${dataFormatada} às ⏰ ${dados.hora}</div>
                     `;
-                    lista.appendChild(card);
+                    listaAndreza.appendChild(cardAndreza);
+
+                    // --- Renderiza o Cartão para o Thiago (Com botão de Edição) ---
+                    const cardThiago = document.createElement('div');
+                    cardThiago.className = 'escala-card';
+                    cardThiago.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div class="escala-title">${dados.tipo}</div>
+                                <div class="escala-details">📅 ${dataFormatada} às ⏰ ${dados.hora}</div>
+                            </div>
+                            <button onclick="editarEscala('${id}', '${dados.tipo}', '${dados.data}', '${dados.hora}')" style="background: none; border: none; color: var(--accent-color); font-size: 14px; font-weight: bold; cursor: pointer; text-decoration: underline;">Editar</button>
+                        </div>
+                    `;
+                    listaThiago.appendChild(cardThiago);
                 });
             });
         }
 
+        // =========================================================
+        // FUNÇÃO DA ANDREZA (Escutar Localização)
+        // =========================================================
         function escutarLocalizacao() {
             onSnapshot(doc(db, "status_thiago", "localizacao"), (docSnap) => {
                 const statusBadge = document.getElementById('namorada-loc-status');
